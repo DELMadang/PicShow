@@ -17,8 +17,17 @@ interface
 uses
   Windows, SysUtils, Classes, Graphics;
 
+const
+  CO_MAX = 2048;
+  CO_MAX_DOUBLE = CO_MAX * 2; //4096
+  CO_MAX_HALF = CO_MAX div 2; //1024
+
 type
   TEffectProc = procedure(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+  TEffect = record
+    Name: String;
+    Proc: TEffectProc;
+  end;
 
 procedure Effect001(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
 procedure Effect002(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
@@ -196,16 +205,24 @@ procedure Effect173(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
 procedure Effect174(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
 procedure Effect175(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
 procedure Effect176(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
-
-type
-  TEffect = record
-    Name: String;
-    Proc: TEffectProc;
-  end;
+// Added Custom (20230920)
+procedure Effect177(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect178(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect179(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect180(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect181(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect182(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect183(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect184(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect185(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect186(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect187(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect188(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+procedure Effect189(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
 
 const
   CustomEffectName = 'Custom';
-  PSEffects: array[1..176] of TEffect = (
+  PSEffects: array[1..189] of TEffect = (
     (Name: 'Expand from right';	                                        Proc: Effect001),
     (Name: 'Expand from left';	                                        Proc: Effect002),
     (Name: 'Slide in from right';	                                      Proc: Effect003),
@@ -381,7 +398,22 @@ const
     (Name: 'Slide out from right';                                      Proc: Effect173),
     (Name: 'Slide out from left';                                       Proc: Effect174),
     (Name: 'Slide out from bottom';                                     Proc: Effect175),
-    (Name: 'Slide out from top';                                        Proc: Effect176));
+    (Name: 'Slide out from top';                                        Proc: Effect176),
+    // Added Custom (20230920)
+    (Name: 'Elliptic reveal out from centre with Fade';                 Proc: Effect177),
+    (Name: 'Cadre reveal out from centre with Fade';                    Proc: Effect178),
+    (Name: 'Reveal out from middle V with Fade';                        Proc: Effect179),
+    (Name: 'Fade Tangentiel';                                           Proc: Effect180),
+    (Name: 'Fade saccade';                                              Proc: Effect181),
+    (Name: 'Reveal from top with Fade';                                 Proc: Effect182),
+    (Name: 'Reveal from bottom with Fade';                              Proc: Effect183),
+    (Name: 'Reveal from right with Fade';                               Proc: Effect184),
+    (Name: 'Reveal out from middle H with Fade';                        Proc: Effect185),
+    (Name: 'Fade Sinus';                                                Proc: Effect186),
+    (Name: 'Fade Staccato 1';                                           Proc: Effect187),
+    (Name: 'Fade Staccato 2';                                           Proc: Effect188),
+    (Name: 'Reveal from left with Fade';                                Proc: Effect189)
+  );
 
 type
   PRGBQuadArray = ^TRGBQuadArray;
@@ -406,6 +438,9 @@ type
     function CreateRegion: HRGN;
   end;
 
+function Muldiv255(AProgression: Integer): Integer;
+function Muldiv256(AProgression: Integer): Integer;
+
 // In the following functions, all the bitmap objects should be 32bit bitmap format.
 procedure ApplyHReflect(Bitmap: TBitmap; Amount: Byte; Pos, Size: Integer);
 procedure ApplyVReflect(Bitmap: TBitmap; Amount: Byte; Pos, Size: Integer);
@@ -417,6 +452,7 @@ implementation
 
 uses
   {$IFDEF COMPILER6_UP} Types, {$ENDIF} Math;
+
 
 { TComplexRegion }
 
@@ -489,6 +525,16 @@ begin
 end;
 
 { Global Functions }
+
+function Muldiv255(AProgression: Integer): Integer;
+begin
+  Result := Muldiv(255, AProgression, CO_MAX)
+end;
+
+function Muldiv256(AProgression: Integer): Integer;
+begin
+  Result := AProgression shr 3; // ~ Muldiv(256, AProgression, CO_MAX)
+end;
 
 procedure ApplyHReflect(Bitmap: TBitmap; Amount: Byte; Pos, Size: Integer);
 var
@@ -4274,6 +4320,261 @@ begin
     BitBlt(Handle, 0, 0, W, H - Y, Handle, 0, Y, SRCCOPY);
     BitBlt(Handle, 0, H - Y, W, Y, Image.Canvas.Handle, 0, H - Y, SRCCOPY);
   end;
+end;
+
+// Elliptic reveal out from centre with Fade
+procedure Effect177(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+  var mW, mH : Integer;
+      Rgn: HRGN;
+      Blend : TBLENDFUNCTION;
+begin
+  mW := W div 2;
+  mH := H div 2;
+  Rgn := CreateRoundRectRgn(mW - X, mH - Y, mW + X, mH + Y,8* X div 5, 8 * Y div 5);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do Try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w,h, Image.Canvas.Handle, 0, 0,w,h,  Blend);
+      BitBlt(Handle, 0, 0, mW-x, mH-y, Image.Canvas.Handle, 0, 0, SRCCOPY);
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
+end;
+
+// Cadre reveal out from centre with Fade
+procedure Effect178(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+  var Rgn: HRGN;
+      Blend : TBLENDFUNCTION;
+begin
+  Rgn := CreateRectRgn((W - X) div 2, (H - Y) div 2, (W + X) div 2, (H + Y) div 2);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do Try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w,h, Image.Canvas.Handle, 0, 0,w,h,  Blend);
+      BitBlt(Handle, 0, 0, (W-x) div 2, (H-y) div 2, Image.Canvas.Handle, 0, 0, SRCCOPY);
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
+end;
+
+// Reveal out from middle v with Fade
+procedure Effect179(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var mWX: Integer;
+    Rgn: HRGN;
+    Blend : TBLENDFUNCTION;
+begin
+  mWX := (W - X) div 2;
+  Rgn := CreateRectRgn(mWX, 0, (W + X) div 2, H);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do Try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w,h, Image.Canvas.Handle, 0, 0,w,h,  Blend);
+      BitBlt(Handle, 0, 0, mwX, H, Image.Canvas.Handle, 0, 0, SRCCOPY);
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
+end;
+
+// Fade Tangentiel
+procedure Effect180(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var
+  dstPixel, srcPixel: PRGBQuad;
+  Weight, I : Integer;
+begin
+  srcPixel := Image.ScanLine[h - 1];
+  dstPixel := Display.ScanLine[h - 1];
+  Weight := round(CO_MAX_HALF * ( 1 + tan(-pi/4 + progress/CO_MAX*pi/2)));
+  for I := (W * H) - 1 downto 0 do begin
+    with dstPixel^ do begin
+      Inc(rgbRed, (Weight * (srcPixel^.rgbRed - rgbRed)) shr 11);
+      Inc(rgbGreen, (Weight * (srcPixel^.rgbGreen - rgbGreen)) shr 11);
+      Inc(rgbBlue, (Weight * (srcPixel^.rgbBlue - rgbBlue)) shr 11);
+    end;
+    Inc(srcPixel);
+    Inc(dstPixel);
+  end;
+end;
+
+// Fade saccade
+procedure Effect181(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var
+  dstPixel, srcPixel: PRGBQuad;
+  I, posit, ampli : Integer;
+begin
+  srcPixel := Image.ScanLine[H - 1];
+  dstPixel := Display.ScanLine[H - 1];
+  posit := progress;
+  if progress < CO_MAX_HALF
+     then ampli := progress div 3
+     else ampli := (CO_MAX - progress) div 3;
+  if (posit mod 3 = 0) then begin
+     posit := progress + random(ampli) * (2*(posit mod 2) -1); end;
+  for I := (W * H) - 1 downto 0 do begin
+    with dstPixel^ do begin
+      Inc(rgbRed, (posit * (srcPixel^.rgbRed - rgbRed)) shr 11);
+      Inc(rgbGreen, (posit * (srcPixel^.rgbGreen - rgbGreen)) shr 11);
+      Inc(rgbBlue, (posit * (srcPixel^.rgbBlue - rgbBlue)) shr 11);
+    end;
+    Inc(srcPixel);
+    Inc(dstPixel);
+  end;
+end;
+
+// Reveal from top with Fade
+procedure Effect182(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var Rgn: HRGN;
+    Blend : TBLENDFUNCTION;
+begin
+  Rgn := CreateRectRgn(0, 0, w, y);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w, h, Image.Canvas.Handle, 0, 0,w,h, Blend);
+      BitBlt(Handle, 0, 0, 0, -2 * H, Image.Canvas.Handle, 0, 0, SRCCOPY);
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
+end;
+
+// Reveal from bottom with Fade
+procedure Effect183(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var dstPixel, srcPixel: PRGBQuad;
+    Weight, I: Integer;
+begin
+  srcPixel := Image.ScanLine[H-1];
+  dstPixel := Display.ScanLine[H-1];
+  Weight := MulDiv256(Progress*y div H) ;
+  for I := y*(w - 1) downTo 0 do begin
+    with dstPixel^ do begin
+      Inc(rgbRed, (Weight * (srcPixel^.rgbRed - rgbRed)) shr 8);
+      Inc(rgbGreen, (Weight * (srcPixel^.rgbGreen - rgbGreen)) shr 8);
+      Inc(rgbBlue, (Weight * (srcPixel^.rgbBlue - rgbBlue)) shr 8); end;
+    Inc(srcPixel);
+    Inc(dstPixel);
+  end;
+end;
+
+// Reveal from right with Fade
+procedure Effect184(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var Rgn: HRGN;
+    Blend : TBLENDFUNCTION;
+begin
+  Rgn := CreateRectRgn(w-X, 0, w, H);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w, h, Image.Canvas.Handle, 0, 0,w,h, Blend);
+      BitBlt(Handle, 0, 0, -2 * W, 0, Image.Canvas.Handle, 0, 0, SRCCOPY);
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
+end;
+
+// Reveal out from middle h with Fade
+procedure Effect185(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var mWy: Integer;
+    Rgn: HRGN;
+    Blend : TBLENDFUNCTION;
+begin
+  mWy := (H - y) div 2;
+  Rgn := CreateRectRgn(0, mWY, W, (H + y) div 2);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do Try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w,h, Image.Canvas.Handle, 0, 0,w,h,  Blend);
+      //AlphaBlend(Handle, 0, (h-y) div 2, w, (h + y) div 2, Image.Canvas.Handle, 0, 0,w,h, Blend);
+      BitBlt(Handle, 0, 0, W, mwy, Image.Canvas.Handle, 0, 0, srccopy);  //
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
+end;
+
+// Fade Sinus
+procedure Effect186(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var
+  dstPixel, srcPixel: PRGBQuad;
+  Weight: Integer;
+  I: Integer;
+begin
+  srcPixel := Image.ScanLine[H - 1];
+  dstPixel := Display.ScanLine[H - 1];
+  Weight := round(CO_MAX_HALF * ( 1 + sin(-pi/2 + progress/CO_MAX*pi)));
+  for I := (W * H) - 1 downto 0 do begin
+    with dstPixel^ do begin
+      Inc(rgbRed, (Weight * (srcPixel^.rgbRed - rgbRed)) shr 11);
+      Inc(rgbGreen, (Weight * (srcPixel^.rgbGreen - rgbGreen)) shr 11);
+      Inc(rgbBlue, (Weight * (srcPixel^.rgbBlue - rgbBlue)) shr 11); end;
+    Inc(srcPixel);
+    Inc(dstPixel);
+  end;
+end;
+
+// Fade Staccato1
+procedure Effect187(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var
+  dstPixel, srcPixel: PRGBQuad;
+  Weight: Integer;
+  I : Integer;
+begin
+  srcPixel := Image.ScanLine[H - 1];
+  dstPixel := Display.ScanLine[H - 1];
+  if progress < CO_MAX / 3
+     then Weight := MulDiv256(progress * 3 div 2)
+     else if progress < CO_MAX_DOUBLE / 3
+          then Weight := 128 //MulDiv(256, CO_MAX_HALF, CO_MAX)
+          else Weight := MulDiv256(progress-(CO_MAX-progress) div 3);
+  for I := (W * H) - 1 downto 0 do begin
+    with dstPixel^ do begin
+      Inc(rgbRed, (Weight * (srcPixel^.rgbRed - rgbRed)) shr 8);
+      Inc(rgbGreen, (Weight * (srcPixel^.rgbGreen - rgbGreen)) shr 8);
+      Inc(rgbBlue, (Weight * (srcPixel^.rgbBlue - rgbBlue)) shr 8);
+    end;
+    Inc(srcPixel);
+    Inc(dstPixel);
+  end;
+end;
+
+// Fade Staccato2
+procedure Effect188(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var
+  dstPixel, srcPixel: PRGBQuad;
+  Weight: Integer;
+  I: Integer;
+begin
+  srcPixel := Image.ScanLine[H - 1];
+  dstPixel := Display.ScanLine[H - 1];
+  case progress of
+         0 ..  400 : Weight := MulDiv256(progress * 5 div 3);
+       401 ..  800 : Weight := MulDiv256( CO_MAX div 3);
+       801 .. 1200 : Weight := MulDiv256( progress - (1200-progress)*3 div 5);
+       1201.. 1600 : Weight := MulDiv256( CO_MAX_DOUBLE div 3)
+       else          Weight := MulDiv256( progress - (CO_MAX-progress)*3 div 5);
+       end;
+  for I := (W * H) - 1 downto 0 do begin
+    with dstPixel^ do begin
+      Inc(rgbRed, (Weight * (srcPixel^.rgbRed - rgbRed)) shr 8);
+      Inc(rgbGreen, (Weight * (srcPixel^.rgbGreen - rgbGreen)) shr 8);
+      Inc(rgbBlue, (Weight * (srcPixel^.rgbBlue - rgbBlue)) shr 8);
+    end;
+    Inc(srcPixel);
+    Inc(dstPixel);
+  end;
+end;
+
+// Reveal from left with Fade
+procedure Effect189(Display, Image: TBitmap; W, H, X, Y, Progress: Integer);
+var Rgn: HRGN;
+    Blend : TBLENDFUNCTION;
+begin
+  Rgn := CreateRectRgn(0, 0, X, H);
+  ZeroMemory(@Blend, SizeOf(Blend));
+  with Display.Canvas do try
+      SelectClipRgn(Handle, Rgn);
+      Blend.SourceConstantAlpha := MulDiv255(Progress) ;
+      AlphaBlend(Handle, 0, 0, w, h, Image.Canvas.Handle, 0, 0,w,h, Blend);
+      BitBlt(Handle, 0, 0, -2 * W, 0, Image.Canvas.Handle, 0, 0, SRCCOPY);
+      SelectClipRgn(Handle, 0);
+  finally DeleteObject(Rgn); end;
 end;
 
 end.
